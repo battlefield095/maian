@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>脉安 · 服药提醒</title>
+  <meta name="theme-color" content="#4A7C59" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="脉安" />
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    :root {
+      --green-50:#F0F7F2;--green-100:#D4EBDA;--green-400:#4A7C59;
+      --green-500:#3A6347;--green-600:#2D5038;--amber-50:#FEF9EE;
+      --amber-400:#E8A020;--amber-100:#FDECC8;--red-50:#FEF2F2;
+      --red-400:#E85555;--blue-50:#EEF4FF;--blue-400:#3B7FDD;
+      --text-primary:#1A2E22;--text-secondary:#567060;--text-muted:#8FAD9B;
+      --bg-page:#F4F8F5;--bg-card:#FFFFFF;--border:rgba(74,124,89,0.15);
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--bg-page); color: var(--text-primary);
+      min-height:100vh; padding-bottom:90px;
+    }
+    .header { background:var(--green-400); padding:52px 20px 24px; position:relative; overflow:hidden; }
+    .header::before { content:''; position:absolute; top:-60px; right:-40px; width:200px; height:200px; border-radius:50%; background:rgba(255,255,255,0.07); }
+    .header-inner { position:relative; z-index:1; }
+    .header-top { display:flex; align-items:center; justify-content:space-between; }
+    .app-brand { display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:38px; height:38px; border-radius:10px; background:rgba(255,255,255,0.22); display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .app-name { color:#fff; font-size:20px; font-weight:600; letter-spacing:2px; }
+    .app-sub { color:rgba(255,255,255,0.75); font-size:11px; margin-top:1px; }
+    .notify-btn { background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.3); border-radius:20px; color:#fff; font-size:12px; padding:6px 14px; cursor:pointer; }
+    .today-card { margin-top:20px; background:rgba(255,255,255,0.15); border-radius:14px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; }
+    .today-label { color:rgba(255,255,255,0.8); font-size:12px; }
+    .today-date { color:#fff; font-size:15px; font-weight:500; margin-top:2px; }
+
+    .main { padding:20px 16px 0; }
+    .section-title { font-size:13px; font-weight:500; color:var(--text-secondary); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+    .section-title::before { content:''; display:inline-block; width:3px; height:13px; background:var(--green-400); border-radius:2px; }
+
+    .med-card { background:var(--bg-card); border-radius:16px; padding:16px; margin-bottom:10px; border:1px solid var(--border); display:flex; align-items:center; gap:14px; }
+    .med-card.done { opacity:0.6; }
+    .med-card.active-now { border:1.5px solid var(--green-400); }
+    .time-badge { width:52px; height:52px; border-radius:12px; background:var(--green-50); display:flex; flex-direction:column; align-items:center; justify-content:center; flex-shrink:0; }
+    .time-badge.amber { background:var(--amber-50); }
+    .time-badge.evening { background:#F0F0FA; }
+    .time-hour { font-size:16px; font-weight:600; color:var(--green-400); line-height:1; }
+    .time-badge.amber .time-hour { color:var(--amber-400); }
+    .time-badge.evening .time-hour { color:#6B60C5; }
+    .time-min { font-size:10px; color:var(--text-muted); margin-top:1px; }
+    .med-info { flex:1; }
+    .med-name { font-size:15px; font-weight:500; }
+    .med-dose { font-size:12px; color:var(--text-secondary); margin-top:3px; }
+    .meal-tag { display:inline-block; background:var(--green-50); color:var(--green-400); font-size:11px; padding:2px 8px; border-radius:6px; margin-top:5px; }
+    .next-badge { font-size:10px; color:var(--green-400); background:var(--green-50); padding:2px 7px; border-radius:6px; margin-top:4px; display:inline-block; }
+    .med-check { width:28px; height:28px; border-radius:50%; border:2px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:14px; transition:all 0.2s; flex-shrink:0; }
+    .med-card.done .med-check { background:var(--green-100); border-color:var(--green-400); }
+    .pulse { display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--green-400); margin-right:4px; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .food-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:10px; }
+    .food-card { background:var(--bg-card); border-radius:14px; padding:14px 12px; border:1px solid var(--border); }
+    .food-emoji { font-size:28px; margin-bottom:6px; }
+    .food-name { font-size:14px; font-weight:500; }
+    .food-effect { font-size:11px; color:var(--text-secondary); margin-top:3px; line-height:1.5; }
+    .food-tag { display:inline-block; font-size:10px; padding:2px 6px; border-radius:4px; margin-top:6px; }
+    .tag-salt { background:#FEF0E6; color:#C4601A; }
+    .tag-circ { background:var(--green-50); color:var(--green-500); }
+    .tag-energy { background:var(--amber-100); color:#8A5D00; }
+
+    .settings-card { background:var(--bg-card); border-radius:16px; padding:16px; border:1px solid var(--border); margin-bottom:10px; }
+    .checkin-wrap { text-align:center; padding:16px 0 8px; }
+    .checkin-fire { font-size:32px; }
+    .checkin-count { font-size:28px; font-weight:600; color:var(--green-400); margin-top:4px; }
+    .checkin-label { font-size:12px; color:var(--text-muted); margin-top:2px; }
+    .calendar-dots { display:flex; justify-content:center; gap:6px; margin-top:12px; }
+    .dot { width:10px; height:10px; border-radius:50%; background:var(--green-100); }
+    .dot.filled { background:var(--green-400); }
+    .dot.today { background:var(--amber-400); }
+
+    .bp-hero { background:var(--bg-card); border-radius:16px; padding:20px 16px; border:1px solid var(--border); margin-bottom:12px; }
+    .bp-latest-row { display:flex; align-items:flex-end; justify-content:space-between; }
+    .bp-latest-nums { display:flex; align-items:baseline; gap:4px; }
+    .bp-sys { font-size:44px; font-weight:600; color:var(--text-primary); line-height:1; }
+    .bp-sep { font-size:28px; color:var(--text-muted); padding:0 2px; }
+    .bp-dia { font-size:32px; font-weight:500; color:var(--text-secondary); line-height:1; }
+    .bp-unit { font-size:12px; color:var(--text-muted); margin-left:4px; }
+    .bp-status-tag { font-size:12px; padding:4px 10px; border-radius:20px; font-weight:500; }
+    .bp-status-low { background:var(--blue-50); color:var(--blue-400); }
+    .bp-status-normal { background:var(--green-50); color:var(--green-400); }
+    .bp-status-high { background:var(--red-50); color:var(--red-400); }
+    .bp-time { font-size:12px; color:var(--text-muted); margin-top:8px; }
+    .bp-pulse-row { display:flex; align-items:center; gap:6px; margin-top:8px; }
+    .bp-pulse-val { font-size:20px; font-weight:500; color:var(--text-primary); }
+    .bp-pulse-label { font-size:11px; color:var(--text-muted); }
+
+    .bp-form { background:var(--bg-card); border-radius:16px; padding:16px; border:1px solid var(--border); margin-bottom:12px; }
+    .bp-inputs { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+    .bp-input-group { text-align:center; }
+    .bp-input-label { font-size:11px; color:var(--text-muted); margin-bottom:4px; }
+    .bp-input { width:100%; border:1px solid var(--border); border-radius:10px; padding:10px 6px; font-size:20px; font-weight:600; color:var(--green-400); background:var(--green-50); text-align:center; outline:none; }
+    .bp-input:focus { border-color:var(--green-400); }
+    .bp-input::placeholder { font-size:14px; font-weight:400; color:var(--text-muted); }
+    .bp-time-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+    .bp-time-label { font-size:13px; color:var(--text-secondary); flex-shrink:0; }
+    .bp-datetime { flex:1; border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:13px; color:var(--text-primary); background:var(--bg-page); outline:none; }
+    .bp-note { width:100%; border:1px solid var(--border); border-radius:10px; padding:8px 12px; font-size:13px; color:var(--text-primary); background:var(--bg-page); outline:none; resize:none; font-family:inherit; margin-bottom:12px; }
+    .bp-note::placeholder { color:var(--text-muted); }
+    .bp-submit { width:100%; background:var(--green-400); color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:500; cursor:pointer; }
+    .bp-submit:active { background:var(--green-500); }
+
+    .chart-wrap { background:var(--bg-card); border-radius:16px; padding:16px; border:1px solid var(--border); margin-bottom:12px; overflow:hidden; }
+    .chart-legend { display:flex; gap:16px; margin-bottom:12px; }
+    .legend-item { display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-secondary); }
+    .legend-dot { width:8px; height:8px; border-radius:50%; }
+    canvas#bpChart { width:100%; height:160px; display:block; }
+
+    .bp-history-list { margin-bottom:10px; }
+    .bp-record { background:var(--bg-card); border-radius:14px; padding:13px 16px; border:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .bp-record-main { display:flex; align-items:baseline; gap:3px; }
+    .bp-record-sys { font-size:20px; font-weight:600; color:var(--text-primary); }
+    .bp-record-sep { font-size:14px; color:var(--text-muted); }
+    .bp-record-dia { font-size:16px; font-weight:500; color:var(--text-secondary); }
+    .bp-record-right { text-align:right; }
+    .bp-record-time { font-size:12px; color:var(--text-muted); }
+    .bp-record-note { font-size:11px; color:var(--text-secondary); margin-top:2px; }
+    .bp-record-del { background:none; border:none; font-size:16px; color:var(--text-muted); cursor:pointer; padding:4px 8px; margin-left:8px; }
+
+    .settings-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+    .settings-row:last-child { border-bottom:none; padding-bottom:0; }
+    .settings-row:first-child { padding-top:0; }
+    .settings-label { font-size:14px; color:var(--text-primary); }
+    .settings-sub { font-size:12px; color:var(--text-muted); margin-top:2px; }
+    .time-input { border:1px solid var(--border); border-radius:8px; padding:6px 10px; font-size:15px; font-weight:500; color:var(--green-400); background:var(--green-50); width:90px; text-align:center; outline:none; }
+    .time-input:focus { border-color:var(--green-400); }
+    .save-btn { width:100%; background:var(--green-400); color:#fff; border:none; border-radius:12px; padding:14px; font-size:15px; font-weight:500; cursor:pointer; margin-top:16px; }
+    .save-btn:active { background:var(--green-500); }
+
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--bg-card); border-top:1px solid var(--border); display:flex; padding:8px 0 calc(8px + env(safe-area-inset-bottom)); z-index:100; }
+    .nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; color:var(--text-muted); transition:color 0.2s; }
+    .nav-item.active { color:var(--green-400); }
+    .nav-icon { width:24px; height:24px; background-size:contain; background-repeat:no-repeat; background-position:center; }
+    .nav-icon-home { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%238FAD9B%22%3E%3Cpath%20d%3D%22M10%2020v-6h4v6h5v-8h3L12%203%202%2012h3v8z%22%2F%3E%3C%2Fsvg%3E"); }
+    .nav-icon-heart { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%238FAD9B%22%3E%3Cpath%20d%3D%22M12%2021.35l-1.45-1.32C5.4%2015.36%202%2012.28%202%208.5%202%205.42%204.42%203%207.5%203c1.74%200%203.41.81%204.5%202.09C13.09%203.81%2014.76%203%2016.5%203%2019.58%203%2022%205.42%2022%208.5c0%203.78-3.4%206.86-8.55%2011.54L12%2021.35z%22%2F%3E%3C%2Fsvg%3E"); }
+    .nav-icon-gear { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%238FAD9B%22%3E%3Cpath%20d%3D%22M19.14%2012.94c.04-.3.06-.61.06-.94%200-.32-.02-.64-.07-.94l2.03-1.58a.49.49%200%200%200%20.12-.61l-1.92-3.32a.488.488%200%200%200-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484%200%200%200-.48-.41h-3.84a.484.484%200%200%200-.48.41l-.36%202.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.488.488%200%200%200-.59.22L2.74%208.87a.49.49%200%200%200%20.12.61l2.03%201.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03%201.58a.49.49%200%200%200-.12.61l1.92%203.32c.12.22.37.29.59.22l2.39-.96c.5.38%201.03.7%201.62.94l.36%202.54c.05.24.27.41.48.41h3.84c.24%200%20.44-.17.48-.41l.36-2.54c.59-.24%201.13-.56%201.62-.94l2.39.96c.22.08.47%200%20.59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12%2015.6c-1.98%200-3.6-1.62-3.6-3.6s1.62-3.6%203.6-3.6%203.6%201.62%203.6%203.6-1.62%203.6-3.6%203.6z%22%2F%3E%3C%2Fsvg%3E"); }
+    .nav-item.active .nav-icon-home { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%234A7C59%22%3E%3Cpath%20d%3D%22M10%2020v-6h4v6h5v-8h3L12%203%202%2012h3v8z%22%2F%3E%3C%2Fsvg%3E"); }
+    .nav-item.active .nav-icon-heart { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%234A7C59%22%3E%3Cpath%20d%3D%22M12%2021.35l-1.45-1.32C5.4%2015.36%202%2012.28%202%208.5%202%205.42%204.42%203%207.5%203c1.74%200%203.41.81%204.5%202.09C13.09%203.81%2014.76%203%2016.5%203%2019.58%203%2022%205.42%2022%208.5c0%203.78-3.4%206.86-8.55%2011.54L12%2021.35z%22%2F%3E%3C%2Fsvg%3E"); }
+    .nav-item.active .nav-icon-gear { background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22%234A7C59%22%3E%3Cpath%20d%3D%22M19.14%2012.94c.04-.3.06-.61.06-.94%200-.32-.02-.64-.07-.94l2.03-1.58a.49.49%200%200%200%20.12-.61l-1.92-3.32a.488.488%200%200%200-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484%200%200%200-.48-.41h-3.84a.484.484%200%200%200-.48.41l-.36%202.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.488.488%200%200%200-.59.22L2.74%208.87a.49.49%200%200%200%20.12.61l2.03%201.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03%201.58a.49.49%200%200%200-.12.61l1.92%203.32c.12.22.37.29.59.22l2.39-.96c.5.38%201.03.7%201.62.94l.36%202.54c.05.24.27.41.48.41h3.84c.24%200%20.44-.17.48-.41l.36-2.54c.59-.24%201.13-.56%201.62-.94l2.39.96c.22.08.47%200%20.59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12%2015.6c-1.98%200-3.6-1.62-3.6-3.6s1.62-3.6%203.6-3.6%203.6%201.62%203.6%203.6-1.62%203.6-3.6%203.6z%22%2F%3E%3C%2Fsvg%3E"); }
+    .nav-label { font-size:10px; }
+
+    .notify-bar { display:none; background:var(--amber-50); border:1px solid var(--amber-100); border-radius:12px; padding:12px 14px; margin:0 16px 12px; font-size:13px; color:#7A5200; }
+    .notify-bar.show { display:block; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:200; align-items:flex-end; justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-sheet { background:var(--bg-card); border-radius:22px 22px 0 0; padding:24px 20px 40px; width:100%; max-width:500px; }
+    .modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 20px; }
+    .modal-title { font-size:17px; font-weight:600; margin-bottom:14px; }
+    .modal-body { font-size:13px; color:var(--text-secondary); line-height:1.8; }
+    .modal-body h4 { font-size:13px; font-weight:500; color:var(--text-primary); margin:12px 0 4px; }
+    .modal-close { margin-top:20px; width:100%; background:var(--green-400); color:#fff; border:none; border-radius:12px; padding:14px; font-size:15px; cursor:pointer; }
+
+    .toast { position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background:rgba(26,46,34,0.88); color:#fff; padding:10px 20px; border-radius:20px; font-size:13px; z-index:300; opacity:0; transition:opacity 0.3s; pointer-events:none; white-space:nowrap; }
+    .toast.show { opacity:1; }
+    .empty-state { text-align:center; padding:30px 20px; color:var(--text-muted); font-size:13px; }
+    .bp-ref-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+    .bp-ref-card { border-radius:12px; padding:10px 8px; text-align:center; }
+    .bp-ref-card.low { background:var(--blue-50); }
+    .bp-ref-card.normal { background:var(--green-50); }
+    .bp-ref-card.high { background:var(--red-50); }
+    .bp-ref-label { font-size:11px; font-weight:500; margin-bottom:4px; }
+    .bp-ref-card.low .bp-ref-label { color:var(--blue-400); }
+    .bp-ref-card.normal .bp-ref-label { color:var(--green-400); }
+    .bp-ref-card.high .bp-ref-label { color:var(--red-400); }
+    .bp-ref-range { font-size:10px; color:var(--text-muted); line-height:1.5; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="header-top">
+      <div class="app-brand">
+        <div class="logo-icon">🌿</div>
+        <div>
+          <div class="app-name">脉 安</div>
+          <div class="app-sub">生脉饮 · 服药提醒</div>
+        </div>
+      </div>
+      <button class="notify-btn" onclick="requestNotify()">开启通知</button>
+    </div>
+    <div class="today-card">
+      <div>
+        <div class="today-label">今天</div>
+        <div class="today-date" id="todayDate">—</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:12px;margin-top:4px;" id="takenSummary">今日已服 0 / 3 次</div>
+      </div>
+      <svg width="58" height="58" viewBox="0 0 58 58">
+        <circle cx="29" cy="29" r="24" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+        <circle cx="29" cy="29" r="24" fill="none" stroke="#fff" stroke-width="4"
+          stroke-dasharray="150.8" stroke-dashoffset="150.8"
+          stroke-linecap="round" id="progressCircle" transform="rotate(-90 29 29)"
+          style="transition:stroke-dashoffset 0.6s ease"/>
+        <text x="29" y="26" text-anchor="middle" fill="white" font-size="13" font-weight="600" id="progressNum">0</text>
+        <text x="29" y="38" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="9">/3次</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<div id="notifyBar" class="notify-bar">
+  💡 请点击右上角「开启通知」，允许浏览器发送提醒，这样到时间会自动弹出通知。
+</div>
+
+<!-- TAB: 今日 -->
+<div id="tab-today" class="tab-panel active">
+  <div class="main">
+    <div class="section-title">今日服药计划</div>
+    <div id="medCards"></div>
+    <div class="section-title" style="margin-top:20px;">推荐食物 · 辅助调理低血压</div>
+    <div class="food-grid">
+      <div class="food-card">
+        <div class="food-emoji">🥜</div>
+        <div class="food-name">花生（带红衣）</div>
+        <div class="food-effect">含维生素K，促进凝血，民间常用升压食物</div>
+        <span class="food-tag tag-energy">升压辅助</span>
+      </div>
+      <div class="food-card">
+        <div class="food-emoji">🥩</div>
+        <div class="food-name">瘦肉 / 猪肝</div>
+        <div class="food-effect">补气补血，富含铁与蛋白质，改善疲乏感</div>
+        <span class="food-tag tag-circ">补气血</span>
+      </div>
+      <div class="food-card">
+        <div class="food-emoji">🫐</div>
+        <div class="food-name">桂圆 / 红枣</div>
+        <div class="food-effect">益心脾、补气血，中医常用于气虚血弱型低血压</div>
+        <span class="food-tag tag-circ">补气血</span>
+      </div>
+      <div class="food-card">
+        <div class="food-emoji">🥚</div>
+        <div class="food-name">鸡蛋 / 牛奶</div>
+        <div class="food-effect">优质蛋白，维持血容量稳定，早餐必备</div>
+        <span class="food-tag tag-energy">稳血压</span>
+      </div>
+      <div class="food-card">
+        <div class="food-emoji">🧂</div>
+        <div class="food-name">适量盐分</div>
+        <div class="food-effect">低血压患者不必严格限盐，适量摄入有助维持血压</div>
+        <span class="food-tag tag-salt">适量摄盐</span>
+      </div>
+      <div class="food-card">
+        <div class="food-emoji">☕</div>
+        <div class="food-name">咖啡 / 浓茶</div>
+        <div class="food-effect">咖啡因可短期升压，晨起不适时可小量饮用</div>
+        <span class="food-tag tag-energy">临时升压</span>
+      </div>
+    </div>
+    <div class="section-title">连续打卡</div>
+    <div class="settings-card">
+      <div class="checkin-wrap">
+        <div class="checkin-fire">🔥</div>
+        <div class="checkin-count" id="streakCount">0</div>
+        <div class="checkin-label">连续坚持天数</div>
+        <div class="calendar-dots" id="calendarDots"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: 血压 -->
+<div id="tab-bp" class="tab-panel">
+  <div class="main">
+    <div class="section-title">最新血压</div>
+    <div class="bp-hero" id="bpHero">
+      <div class="empty-state" id="bpEmpty">暂无记录，请在下方录入血压数据</div>
+      <div id="bpLatest" style="display:none;">
+        <div class="bp-latest-row">
+          <div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">收缩压 / 舒张压 (mmHg)</div>
+            <div class="bp-latest-nums">
+              <span class="bp-sys" id="latSys">--</span>
+              <span class="bp-sep">/</span>
+              <span class="bp-dia" id="latDia">--</span>
+              <span class="bp-unit">mmHg</span>
+            </div>
+          </div>
+          <span class="bp-status-tag" id="latStatus">—</span>
+        </div>
+        <div class="bp-pulse-row">
+          <span style="font-size:16px;">❤️</span>
+          <span class="bp-pulse-val" id="latPulse">—</span>
+          <span class="bp-pulse-label">次/分</span>
+        </div>
+        <div class="bp-time" id="latTime">—</div>
+      </div>
+    </div>
+    <div class="section-title">血压区间参考</div>
+    <div class="bp-ref-grid">
+      <div class="bp-ref-card low">
+        <div class="bp-ref-label">偏低</div>
+        <div class="bp-ref-range">收缩压 &lt;90<br/>舒张压 &lt;60</div>
+      </div>
+      <div class="bp-ref-card normal">
+        <div class="bp-ref-label">正常</div>
+        <div class="bp-ref-range">90–120<br/>60–80</div>
+      </div>
+      <div class="bp-ref-card high">
+        <div class="bp-ref-label">偏高</div>
+        <div class="bp-ref-range">≥130<br/>≥80</div>
+      </div>
+    </div>
+    <div class="section-title">近期趋势</div>
+    <div class="chart-wrap">
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#4A7C59;"></div>收缩压</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3B7FDD;"></div>舒张压</div>
+      </div>
+      <canvas id="bpChart"></canvas>
+    </div>
+    <div class="section-title">录入血压</div>
+    <div class="bp-form">
+      <div class="bp-inputs">
+        <div class="bp-input-group">
+          <div class="bp-input-label">收缩压</div>
+          <input class="bp-input" type="number" id="inSys" placeholder="120" min="60" max="220" inputmode="numeric"/>
+        </div>
+        <div class="bp-input-group">
+          <div class="bp-input-label">舒张压</div>
+          <input class="bp-input" type="number" id="inDia" placeholder="80" min="40" max="140" inputmode="numeric"/>
+        </div>
+        <div class="bp-input-group">
+          <div class="bp-input-label">心率</div>
+          <input class="bp-input" type="number" id="inPulse" placeholder="70" min="30" max="200" inputmode="numeric"/>
+        </div>
+      </div>
+      <div class="bp-time-row">
+        <span class="bp-time-label">测量时间</span>
+        <input class="bp-datetime" type="datetime-local" id="inTime"/>
+      </div>
+      <textarea class="bp-note" id="inNote" rows="2" placeholder="备注（可选）：头晕、测量姿势等"></textarea>
+      <button class="bp-submit" onclick="addBpRecord()">保存记录</button>
+    </div>
+    <div class="section-title">历史记录</div>
+    <div id="bpHistoryList" class="bp-history-list"></div>
+  </div>
+</div>
+
+<!-- TAB: 设置 -->
+<div id="tab-setting" class="tab-panel">
+  <div class="main">
+    <div class="section-title">服药时间设置</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">早饭前（第1次）</div>
+          <div class="settings-sub">建议早餐前 30 分钟</div>
+        </div>
+        <input type="time" class="time-input" id="time1" value="07:30"/>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">午饭前（第2次）</div>
+          <div class="settings-sub">建议午餐前 30 分钟</div>
+        </div>
+        <input type="time" class="time-input" id="time2" value="11:30"/>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">晚饭前（第3次）</div>
+          <div class="settings-sub">建议晚餐前 30 分钟</div>
+        </div>
+        <input type="time" class="time-input" id="time3" value="17:30"/>
+      </div>
+    </div>
+    <div class="section-title">量血压提醒</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">早晨量血压</div>
+          <div class="settings-sub">建议起床后、服药前</div>
+        </div>
+        <input type="time" class="time-input" id="bpTime1" value="07:00"/>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">傍晚量血压</div>
+          <div class="settings-sub">建议饭后 1 小时</div>
+        </div>
+        <input type="time" class="time-input" id="bpTime2" value="18:30"/>
+      </div>
+    </div>
+    <div class="section-title">药品信息</div>
+    <div class="settings-card">
+      <div class="settings-row">
+        <div><div class="settings-label">药品名称</div></div>
+        <div style="font-size:14px;color:var(--green-400);font-weight:500;">生脉饮口服液</div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">每次剂量</div></div>
+        <div style="font-size:14px;color:var(--text-secondary);">1支（10ml）</div>
+      </div>
+      <div class="settings-row">
+        <div><div class="settings-label">服用方法</div></div>
+        <div style="font-size:14px;color:var(--text-secondary);">饭前30分钟口服</div>
+      </div>
+      <div class="settings-row" onclick="openModal()" style="cursor:pointer;">
+        <div>
+          <div class="settings-label">药品说明</div>
+          <div class="settings-sub">功效 / 注意事项</div>
+        </div>
+        <div style="font-size:18px;color:var(--text-muted);">›</div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="saveSettings()">保存设置</button>
+  </div>
+</div>
+
+<!-- 底部导航 -->
+<div class="bottom-nav">
+  <div class="nav-item active" id="nav-today" onclick="switchTab('today')">
+    <div class="nav-icon nav-icon-home"></div>
+    <div class="nav-label">今日</div>
+  </div>
+  <div class="nav-item" id="nav-bp" onclick="switchTab('bp')">
+    <div class="nav-icon nav-icon-heart"></div>
+    <div class="nav-label">血压</div>
+  </div>
+  <div class="nav-item" id="nav-setting" onclick="switchTab('setting')">
+    <div class="nav-icon nav-icon-gear"></div>
+    <div class="nav-label">设置</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 药品说明弹窗 -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🌿 生脉饮口服液 · 说明</div>
+    <div class="modal-body">
+      <h4>主要成分</h4>红参、麦冬、五味子。
+      <h4>功能主治</h4>益气复脉、养阴生津。用于气阴两亏、心悸气短、脉微自汗。对低血压、心功能不全等气虚表现有辅助调理作用。
+      <h4>用法用量</h4>口服，1次1支（10ml），1日3次，饭前30分钟服用。
+      <h4>注意事项</h4>
+      · 感冒发烧期间慎用<br/>
+      · 湿热偏盛（口干舌燥、舌苔黄腻）者请咨询医生<br/>
+      · 开封后请及时饮用，不宜存放<br/>
+      · 本品为辅助调理药，不能替代降压西药
+      <h4>储存方式</h4>密封，置于阴凉干燥处（≤20°C）。
+    </div>
+    <button class="modal-close" onclick="closeModal()">我知道了</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════
+   存储层
+══════════════════════════════ */
+const STORAGE_KEY = 'maian_v2';
+
+function getState() {
+  try {
+    const r = localStorage.getItem(STORAGE_KEY);
+    return r ? JSON.parse(r) : null;
+  } catch(e) { return null; }
+}
+
+function defaultState() {
+  return {
+    times: ['07:30','11:30','17:30'],
+    bpTimes: ['07:00','18:30'],
+    takenDates: {},
+    bpRecords: []
+  };
+}
+
+function saveState(st) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(st));
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getTakenToday(st) {
+  const k = todayStr();
+  if (!st.takenDates[k]) st.takenDates[k] = [false,false,false];
+  return st.takenDates[k];
+}
+
+function computeStreak(st) {
+  let count = 0;
+  let d = new Date();
+  for (let i = 0; i < 30; i++) {
+    const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    const t = st.takenDates[k];
+    if (t && t.every(function(v){return v;})) {
+      count++;
+      d.setDate(d.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return count;
+}
+
+/* ═══════════════════════════════
+   服药卡片
+══════════════════════════════ */
+function renderMedCards(st) {
+  var taken = getTakenToday(st);
+  var now = new Date();
+  var cur = now.getHours() * 60 + now.getMinutes();
+  var labels = ['早饭前','午饭前','晚饭前'];
+  var colors = ['','amber','evening'];
+  var html = '';
+  for (var i = 0; i < 3; i++) {
+    var parts = st.times[i].split(':');
+    var h = parseInt(parts[0]);
+    var m = parseInt(parts[1]);
+    var tmin = h * 60 + m;
+    var isDone = taken[i];
+    var isActive = !isDone && Math.abs(cur - tmin) <= 30;
+    var cls = isDone ? 'done' : '';
+    if (isActive) cls += ' active-now';
+    html += '<div class="med-card ' + cls + '">' +
+      '<div class="time-badge ' + colors[i] + '">' +
+        '<div class="time-hour">' + String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + '</div>' +
+        '<div class="time-min">' + labels[i] + '</div>' +
+      '</div>' +
+      '<div class="med-info">' +
+        '<div class="med-name">生脉饮口服液</div>' +
+        '<div class="med-dose">1支 10ml · 口服</div>' +
+        '<span class="meal-tag">饭前30分钟</span>' +
+        (isActive ? '<div class="next-badge"><span class="pulse"></span>该服药了</div>' : '') +
+      '</div>' +
+      '<div class="med-check" onclick="toggleTaken(' + i + ')">' + (isDone ? '✓' : '') + '</div>' +
+    '</div>';
+  }
+  document.getElementById('medCards').innerHTML = html;
+  var cnt = taken.filter(function(v){return v;}).length;
+  document.getElementById('takenSummary').textContent = '今日已服 ' + cnt + ' / 3 次';
+  document.getElementById('progressNum').textContent = cnt;
+  var circ = 2 * Math.PI * 24;
+  document.getElementById('progressCircle').style.strokeDashoffset = circ - (circ * cnt / 3);
+}
+
+function toggleTaken(i) {
+  var st = getState() || defaultState();
+  var taken = getTakenToday(st);
+  taken[i] = !taken[i];
+  st.takenDates[todayStr()] = taken;
+  saveState(st);
+  renderMedCards(st);
+  renderStreak(st);
+  showToast(taken[i] ? '✅ 已记录服药' : '↩ 已取消记录');
+}
+
+function renderStreak(st) {
+  document.getElementById('streakCount').textContent = computeStreak(st);
+  var d = new Date();
+  var dots = '';
+  for (var i = 6; i >= 0; i--) {
+    var dd = new Date(d);
+    dd.setDate(d.getDate() - i);
+    var k = dd.getFullYear() + '-' + String(dd.getMonth()+1).padStart(2,'0') + '-' + String(dd.getDate()).padStart(2,'0');
+    var t = st.takenDates[k];
+    var cls = 'dot';
+    if (i === 0) cls += ' today';
+    else if (t && t.every(function(v){return v;})) cls += ' filled';
+    dots += '<div class="' + cls + '"></div>';
+  }
+  document.getElementById('calendarDots').innerHTML = dots;
+}
+
+/* ═══════════════════════════════
+   血压模块
+══════════════════════════════ */
+function bpStatus(sys, dia) {
+  if (sys < 90 || dia < 60) return {label:'偏低', cls:'bp-status-low'};
+  if (sys >= 130 || dia >= 80) return {label:'偏高', cls:'bp-status-high'};
+  return {label:'正常', cls:'bp-status-normal'};
+}
+
+function renderBpLatest(st) {
+  var recs = st.bpRecords;
+  if (!recs || recs.length === 0) {
+    document.getElementById('bpEmpty').style.display = 'block';
+    document.getElementById('bpLatest').style.display = 'none';
+    return;
+  }
+  var latest = recs[recs.length - 1];
+  document.getElementById('bpEmpty').style.display = 'none';
+  document.getElementById('bpLatest').style.display = 'block';
+  document.getElementById('latSys').textContent = latest.sys;
+  document.getElementById('latDia').textContent = latest.dia;
+  document.getElementById('latPulse').textContent = latest.pulse || '—';
+  var st2 = bpStatus(latest.sys, latest.dia);
+  var el = document.getElementById('latStatus');
+  el.textContent = st2.label;
+  el.className = 'bp-status-tag ' + st2.cls;
+  var d = new Date(latest.time);
+  document.getElementById('latTime').textContent =
+    (d.getMonth()+1) + '月' + d.getDate() + '日 ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+function renderBpChart(st) {
+  var canvas = document.getElementById('bpChart');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W = canvas.offsetWidth;
+  var H = 160;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  var recs = (st.bpRecords || []).slice(-10);
+  if (recs.length < 2) {
+    ctx.fillStyle = '#8FAD9B';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('至少需要2条记录才能显示趋势图', W/2, H/2);
+    return;
+  }
+
+  var sysVals = recs.map(function(r){return r.sys;});
+  var diaVals = recs.map(function(r){return r.dia;});
+  var allVals = sysVals.concat(diaVals);
+  var minV = Math.min.apply(null, allVals) - 10;
+  var maxV = Math.max.apply(null, allVals) + 10;
+
+  var padL = 28, padR = 12, padT = 12, padB = 28;
+  var chartW = W - padL - padR;
+  var chartH = H - padT - padB;
+  var n = recs.length;
+
+  function xOf(i) { return padL + (i / (n - 1)) * chartW; }
+  function yOf(v) { return padT + (1 - (v - minV) / (maxV - minV)) * chartH; }
+
+  // 网格线
+  ctx.strokeStyle = 'rgba(74,124,89,0.1)';
+  ctx.lineWidth = 1;
+  for (var i = 0; i <= 4; i++) {
+    var y = padT + (i / 4) * chartH;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    var val = Math.round(maxV - (maxV - minV) * i / 4);
+    ctx.fillStyle = '#8FAD9B';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(val, padL - 4, y + 3);
+  }
+
+  // 收缩压曲线
+  ctx.strokeStyle = '#4A7C59';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  recs.forEach(function(r, i) {
+    i === 0 ? ctx.moveTo(xOf(i), yOf(r.sys)) : ctx.lineTo(xOf(i), yOf(r.sys));
+  });
+  ctx.stroke();
+  recs.forEach(function(r, i) {
+    ctx.fillStyle = '#4A7C59';
+    ctx.beginPath();
+    ctx.arc(xOf(i), yOf(r.sys), 3.5, 0, 2 * Math.PI);
+    ctx.fill();
+  });
+
+  // 舒张压曲线
+  ctx.strokeStyle = '#3B7FDD';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  recs.forEach(function(r, i) {
+    i === 0 ? ctx.moveTo(xOf(i), yOf(r.dia)) : ctx.lineTo(xOf(i), yOf(r.dia));
+  });
+  ctx.stroke();
+  recs.forEach(function(r, i) {
+    ctx.fillStyle = '#3B7FDD';
+    ctx.beginPath();
+    ctx.arc(xOf(i), yOf(r.dia), 3.5, 0, 2 * Math.PI);
+    ctx.fill();
+  });
+
+  // X轴日期
+  ctx.fillStyle = '#8FAD9B';
+  ctx.font = '9px sans-serif';
+  ctx.textAlign = 'center';
+  recs.forEach(function(r, i) {
+    var d = new Date(r.time);
+    ctx.fillText((d.getMonth()+1) + '/' + d.getDate(), xOf(i), H - 6);
+  });
+}
+
+function renderBpHistory(st) {
+  var recs = (st.bpRecords || []).slice().reverse();
+  if (!recs.length) {
+    document.getElementById('bpHistoryList').innerHTML = '<div class="empty-state">暂无血压记录</div>';
+    return;
+  }
+  var html = '';
+  recs.slice(0, 20).forEach(function(r, i) {
+    var ri = st.bpRecords.length - 1 - i;
+    var d = new Date(r.time);
+    var timeStr = (d.getMonth()+1) + '月' + d.getDate() + '日 ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    var st2 = bpStatus(r.sys, r.dia);
+    html += '<div class="bp-record">' +
+      '<div>' +
+        '<div class="bp-record-main">' +
+          '<span class="bp-record-sys">' + r.sys + '</span>' +
+          '<span class="bp-record-sep">/</span>' +
+          '<span class="bp-record-dia">' + r.dia + '</span>' +
+          '<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">mmHg</span>' +
+          (r.pulse ? '<span style="font-size:11px;color:var(--text-muted);margin-left:8px;">❤️ ' + r.pulse + '</span>' : '') +
+        '</div>' +
+        (r.note ? '<div class="bp-record-note">' + r.note + '</div>' : '') +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:4px;">' +
+        '<div class="bp-record-right">' +
+          '<div class="bp-record-time">' + timeStr + '</div>' +
+          '<span class="bp-status-tag ' + st2.cls + '" style="font-size:10px;padding:1px 6px;margin-top:3px;display:inline-block;">' + st2.label + '</span>' +
+        '</div>' +
+        '<button class="bp-record-del" onclick="deleteBpRecord(' + ri + ')">×</button>' +
+      '</div>' +
+    '</div>';
+  });
+  document.getElementById('bpHistoryList').innerHTML = html;
+}
+
+function addBpRecord() {
+  var sys = parseInt(document.getElementById('inSys').value);
+  var dia = parseInt(document.getElementById('inDia').value);
+  var pulse = parseInt(document.getElementById('inPulse').value) || null;
+  var time = document.getElementById('inTime').value;
+  var note = document.getElementById('inNote').value.trim();
+
+  if (!sys || !dia || sys < 60 || sys > 220 || dia < 40 || dia > 140) {
+    showToast('⚠️ 请输入有效的血压数值'); return;
+  }
+  if (!time) { showToast('⚠️ 请选择测量时间'); return; }
+
+  var st = getState() || defaultState();
+  if (!st.bpRecords) st.bpRecords = [];
+  st.bpRecords.push({sys:sys, dia:dia, pulse:pulse, time:time, note:note});
+  st.bpRecords.sort(function(a, b) { return new Date(a.time) - new Date(b.time); });
+  saveState(st);
+
+  document.getElementById('inSys').value = '';
+  document.getElementById('inDia').value = '';
+  document.getElementById('inPulse').value = '';
+  document.getElementById('inNote').value = '';
+
+  renderBpLatest(st);
+  renderBpHistory(st);
+  setTimeout(function(){ renderBpChart(st); }, 50);
+  showToast('✅ 血压记录已保存');
+
+  var s = bpStatus(sys, dia);
+  if (s.label === '偏低') setTimeout(function(){ showToast('⚠️ 血压偏低，注意多喝水、适当补充盐分'); }, 1500);
+  else if (s.label === '偏高') setTimeout(function(){ showToast('⚠️ 血压偏高，请及时告知医生'); }, 1500);
+}
+
+function deleteBpRecord(idx) {
+  var st = getState() || defaultState();
+  st.bpRecords.splice(idx, 1);
+  saveState(st);
+  renderBpLatest(st);
+  renderBpHistory(st);
+  setTimeout(function(){ renderBpChart(st); }, 50);
+  showToast('已删除该记录');
+}
+
+function initBpDateTime() {
+  var now = new Date();
+  var pad = function(n) { return String(n).padStart(2, '0'); };
+  var val = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate()) + 'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  var el = document.getElementById('inTime');
+  if (el) el.value = val;
+}
+
+/* ═══════════════════════════════
+   通知
+══════════════════════════════ */
+function checkNotifyPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'denied') {
+    document.getElementById('notifyBar').classList.add('show');
+  }
+}
+
+async function requestNotify() {
+  if (!('Notification' in window)) { showToast('⚠️ 当前环境不支持通知'); return; }
+  try {
+    var p = await Notification.requestPermission();
+    if (p === 'granted') {
+      showToast('✅ 通知已开启！');
+      document.getElementById('notifyBar').classList.remove('show');
+      scheduleChecks(getState() || defaultState());
+    } else {
+      document.getElementById('notifyBar').classList.add('show');
+      showToast('❌ 通知被拒绝，请在系统设置中允许');
+    }
+  } catch(e) { showToast('⚠️ 通知请求失败'); }
+}
+
+function scheduleChecks(st) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  clearInterval(window._notifyInterval);
+  window._notifyInterval = setInterval(function() {
+    checkAndNotify(getState() || defaultState());
+  }, 60000);
+  checkAndNotify(st);
+}
+
+function checkAndNotify(st) {
+  var now = new Date();
+  var cur = now.getHours() * 60 + now.getMinutes();
+  var taken = getTakenToday(st);
+  var labels = ['早饭前','午饭前','晚饭前'];
+  for (var i = 0; i < 3; i++) {
+    var parts = st.times[i].split(':');
+    var h = parseInt(parts[0]);
+    var m = parseInt(parts[1]);
+    if (cur === h * 60 + m && !taken[i]) {
+      try {
+        new Notification('💊 脉安 · 服药提醒', {
+          body: labels[i] + '服药时间到！记得服用生脉饮口服液 1支',
+          tag: 'med-' + i,
+          renotify: true,
+          requireInteraction: true
+        });
+      } catch(e) {}
+    }
+  }
+  var bpTimes = st.bpTimes || ['07:00','18:30'];
+  var bpLabels = ['晨起','傍晚'];
+  for (var i = 0; i < 2; i++) {
+    var parts2 = bpTimes[i].split(':');
+    var h2 = parseInt(parts2[0]);
+    var m2 = parseInt(parts2[1]);
+    if (cur === h2 * 60 + m2) {
+      try {
+        new Notification('🩺 脉安 · 量血压', {
+          body: bpLabels[i] + '量血压时间到啦！记得记录数值',
+          tag: 'bp-' + i,
+          renotify: true
+        });
+      } catch(e) {}
+    }
+  }
+}
+
+/* ═══════════════════════════════
+   设置保存
+══════════════════════════════ */
+function saveSettings() {
+  var st = getState() || defaultState();
+  st.times = [
+    document.getElementById('time1').value || '07:30',
+    document.getElementById('time2').value || '11:30',
+    document.getElementById('time3').value || '17:30'
+  ];
+  st.bpTimes = [
+    document.getElementById('bpTime1').value || '07:00',
+    document.getElementById('bpTime2').value || '18:30'
+  ];
+  saveState(st);
+  renderMedCards(st);
+  scheduleChecks(st);
+  showToast('✅ 设置已保存');
+}
+
+/* ═══════════════════════════════
+   Tab / Modal / Toast
+══════════════════════════════ */
+function switchTab(name) {
+  var panels = document.querySelectorAll('.tab-panel');
+  for (var i = 0; i < panels.length; i++) panels[i].classList.remove('active');
+  var navs = document.querySelectorAll('.nav-item');
+  for (var i = 0; i < navs.length; i++) navs[i].classList.remove('active');
+  var tabEl = document.getElementById('tab-' + name);
+  if (tabEl) tabEl.classList.add('active');
+  var navEl = document.getElementById('nav-' + name);
+  if (navEl) navEl.classList.add('active');
+  if (name === 'bp') {
+    var st = getState() || defaultState();
+    renderBpLatest(st);
+    renderBpHistory(st);
+    setTimeout(function(){ renderBpChart(st); }, 80);
+  }
+}
+
+function openModal() {
+  var m = document.getElementById('modal');
+  if (m) m.classList.add('open');
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal')) {
+    var m = document.getElementById('modal');
+    if (m) m.classList.remove('open');
+  }
+}
+
+var _tt;
+function showToast(msg) {
+  var el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(function(){ el.classList.remove('show'); }, 2400);
+}
+
+/* ═══════════════════════════════
+   初始化
+══════════════════════════════ */
+function init() {
+  var st = getState();
+  if (!st) { st = defaultState(); saveState(st); }
+  if (!st.bpTimes) st.bpTimes = ['07:00','18:30'];
+  if (!st.bpRecords) st.bpRecords = [];
+
+  var d = new Date();
+  var wk = ['日','一','二','三','四','五','六'];
+  var dateEl = document.getElementById('todayDate');
+  if (dateEl) dateEl.textContent = (d.getMonth()+1) + '月' + d.getDate() + '日 · 周' + wk[d.getDay()];
+
+  var t1 = document.getElementById('time1');
+  var t2 = document.getElementById('time2');
+  var t3 = document.getElementById('time3');
+  var bt1 = document.getElementById('bpTime1');
+  var bt2 = document.getElementById('bpTime2');
+  if (t1) t1.value = st.times[0];
+  if (t2) t2.value = st.times[1];
+  if (t3) t3.value = st.times[2];
+  if (bt1) bt1.value = st.bpTimes[0] || '07:00';
+  if (bt2) bt2.value = st.bpTimes[1] || '18:30';
+
+  renderMedCards(st);
+  renderStreak(st);
+  renderBpLatest(st);
+  renderBpHistory(st);
+  initBpDateTime();
+  checkNotifyPermission();
+  scheduleChecks(st);
+  setTimeout(function(){ renderBpChart(st); }, 100);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
